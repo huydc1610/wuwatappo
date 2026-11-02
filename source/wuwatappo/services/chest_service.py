@@ -26,6 +26,7 @@ class ChestService:
 
         self.opened_count = 0
         self.last_status = "Đã dừng"
+        self.next_claim_time: dict[str, float] = {"left": 0.0, "right": 0.0}
 
         self.on_reward_received: Callable[[dict[str, Any]], None] | None = None
         self.on_status_change: Callable[[str], None] | None = None
@@ -55,9 +56,16 @@ class ChestService:
 
     def _worker_loop(self) -> None:
         while self._running:
+            now = time.time()
             for place in ("left", "right"):
                 if not self._running:
                     break
+                # Kiểm tra cooldown trước khi gửi request
+                if now < self.next_claim_time[place]:
+                    rem_sec = int(self.next_claim_time[place] - now)
+                    self.storage.add_log("INFO", f"Rương {place} đang chờ cooldown (còn {rem_sec}s)")
+                    continue
+
                 self._attempt_open_chest(place)
                 time.sleep(1.0)
 
@@ -80,51 +88,69 @@ class ChestService:
 
         if not ok:
             err_msg = str(resp)
-            self.storage.add_log("WARNING", f"Claim rương {place} chưa thành công: {err_msg} (HTTP {status_code})")
+            self.storage.add_log("WARNING", f"Claim rương {place} lỗi mạng: {err_msg} (HTTP {status_code})")
             return
 
-        # Phân tích dữ liệu phần quà nhận được
-        asset_id = "unknown"
-        asset_name = "Phần thưởng"
-        cost = 0
-        raw_str = ""
+        if not isinstance(resp, dict):
+            self.storage.add_log("WARNING", f"Claim rương {place}: Response không phải JSON: {str(resp)[:100]}")
+            return
 
-        if isinstance(resp, dict):
-            raw_str = json.dumps(resp, ensure_ascii=False)
-            data = resp.get("data", resp)
-            if isinstance(data, dict):
-                asset_id = str(data.get("asset_id") or data.get("id") or data.get("item_id") or "1")
-                cost = int(data.get("cost") or 0)
-            elif isinstance(data, list) and len(data) > 0:
-                first = data[0]
-                if isinstance(first, dict):
-                    asset_id = str(first.get("asset_id") or first.get("id") or "1")
+        raw_str = json.dumps(resp, ensure_ascii=False)
+        code = resp.get("code")
+        msg = resp.get("message", "")
+
+        # Xử lý trường hợp thành công (code == 0)
+        if code == 0:
+            data = resp.get("data", {})
+            asset_id = str(data.get("asset_id", "unknown"))
+            raw_asset_name = data.get("asset_name")
+            asset_type = data.get("asset_type", "item")
+            cost = int(data.get("click_consume") or 0)
+            rarity = data.get("rarity_type", "common")
+
+            # Cập nhật cooldown nếu có timestamp ms
+            left_next = data.get("left_next_time")
+            if left_next and isinstance(left_next, (int, float)):
+                self.next_claim_time["left"] = float(left_next) / 1000.0
+
+            right_next = data.get("right_next_time")
+            if right_next and isinstance(right_next, (int, float)):
+                self.next_claim_time["right"] = float(right_next) / 1000.0
+
+            # Xác định tên hiển thị
+            if raw_asset_name:
+                asset_name = raw_asset_name
+            else:
+                resolved = self.catalog.resolve(asset_id)
+                asset_name = resolved["name"]
+
+            reward_id = self.storage.add_reward(
+                place=place,
+                asset_id=asset_id,
+                asset_name=asset_name,
+                cost=cost,
+                status="confirmed",
+                raw_json=raw_str,
+            )
+
+            self.opened_count += 1
+            reward_info = {
+                "id": reward_id,
+                "place": place,
+                "asset_id": asset_id,
+                "asset_name": asset_name,
+                "asset_type": asset_type,
+                "rarity": rarity,
+                "cost": cost,
+                "status": "confirmed",
+            }
+
+            self.storage.add_log("INFO", f"Nhận quà rương {place}: {asset_name} (ID: {asset_id}, tiêu tốn: {cost} click)")
+            if self.on_reward_received:
+                self.on_reward_received(reward_info)
+
+        # Xử lý trường hợp Cooldown (code == 70006)
+        elif code == 70006:
+            self.storage.add_log("INFO", f"Rương {place}: Đang trong thời gian chờ hồi (cooldown)")
         else:
-            raw_str = str(resp)
-
-        resolved = self.catalog.resolve(asset_id)
-        asset_name = resolved["name"]
-
-        reward_id = self.storage.add_reward(
-            place=place,
-            asset_id=asset_id,
-            asset_name=asset_name,
-            cost=cost,
-            status="confirmed",
-            raw_json=raw_str,
-        )
-
-        self.opened_count += 1
-        reward_info = {
-            "id": reward_id,
-            "place": place,
-            "asset_id": asset_id,
-            "asset_name": asset_name,
-            "cost": cost,
-            "status": "confirmed",
-        }
-
-        self.storage.add_log("INFO", f"Nhận quà rương {place}: {asset_name} (ID: {asset_id})")
-        if self.on_reward_received:
-            self.on_reward_received(reward_info)
-
+            self.storage.add_log("WARNING", f"Claim rương {place} thất bại: {msg} (code: {code})")

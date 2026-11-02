@@ -645,6 +645,15 @@ class MainWindow(ctk.CTk):
             col_right = ctk.CTkFrame(card, fg_color="transparent")
             col_right.pack(side="right", padx=10, pady=8)
 
+            if r.get("cost"):
+                cost_lbl = ctk.CTkLabel(
+                    col_right,
+                    text=f"-{r['cost']:,} click",
+                    text_color="#f39c12",
+                    font=ctk.CTkFont(size=11, weight="bold"),
+                )
+                cost_lbl.pack(anchor="e")
+
             status_lbl = ctk.CTkLabel(col_right, text="Đã xác nhận", text_color="#2ecc71", font=ctk.CTkFont(size=11))
             status_lbl.pack(anchor="e")
 
