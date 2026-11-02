@@ -1,2 +1,3 @@
-def main() -> None:
-    print("Hello from wuwatappo!")
+from wuwatappo.ui.main_window import main
+
+__all__ = ["main"]

@@ -20,3 +20,4 @@
 - Hạn chế comment mã nguồn, chỉ comment các logic phức tạp bằng cụm từ tiếng Việt siêu ngắn.
 - Dọn dẹp toàn bộ file test/mock tạm thời sau khi xác minh xong.
 - Sau mỗi phiên làm việc hoặc cập nhật mới, ghi log vào `agentlog/`.
+

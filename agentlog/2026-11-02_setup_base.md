@@ -10,3 +10,4 @@
   - Root: Môi trường `.venv`, `pyproject.toml`, `uv.lock`, `.gitignore`.
 - Cấu hình `pyproject.toml` sử dụng backend `hatchling` trỏ đến `source/wuwatappo`.
 - Kiểm tra chạy thành công lệnh `uv run source/main.py`.
+

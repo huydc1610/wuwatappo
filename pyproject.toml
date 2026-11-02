@@ -7,7 +7,12 @@ authors = [
     { name = "Đỗ Công Huy", email = "conghuy16102005@gmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "cryptography>=50.0.2",
+    "customtkinter>=6.0.0",
+    "pyinstaller>=6.22.3",
+    "requests>=2.34.2",
+]
 
 [project.scripts]
 wuwatappo = "wuwatappo:main"
