@@ -8,6 +8,7 @@ from wuwatappo.services.api_client import ApiClient, mask_token
 from wuwatappo.services.catalog import Catalog
 from wuwatappo.services.chest_service import ChestService
 from wuwatappo.services.click_service import ClickService
+from wuwatappo.services.proxy_token_service import ProxyTokenService
 from wuwatappo.services.token_service import TokenService, TokenStatus
 from wuwatappo.storage import Storage
 
@@ -29,6 +30,7 @@ class MainWindow(ctk.CTk):
         self.token_service = TokenService(self.config, self.storage, self.api_client)
         self.click_service = ClickService(self.api_client)
         self.chest_service = ChestService(self.config, self.storage, self.api_client, self.catalog)
+        self.proxy_token_service = ProxyTokenService()
 
         # Đăng ký callbacks
         self.token_service.on_status_change = self._on_token_status_changed
@@ -335,6 +337,46 @@ class MainWindow(ctk.CTk):
         )
         btn_delete_token.pack(side="right")
 
+        # Auto Proxy Token Extractor
+        ctk.CTkLabel(frame, text="Tự Động Lấy Token Qua Proxy", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", padx=20, pady=(25, 5))
+        ctk.CTkLabel(
+            frame,
+            text="Nhấn Bắt đầu để tự động bật Proxy và cài chứng chỉ. Sau đó vào game mở sự kiện Tappo.\nKhi bắt được token, proxy sẽ TỰ ĐỘNG TẮT ngay lập tức và khôi phục cài đặt mạng.",
+            font=ctk.CTkFont(size=12),
+            text_color="gray",
+            justify="left",
+        ).pack(anchor="w", padx=20, pady=(0, 10))
+
+        proxy_btn_box = ctk.CTkFrame(frame, fg_color="transparent")
+        proxy_btn_box.pack(fill="x", padx=20, pady=5)
+
+        self.btn_start_proxy = ctk.CTkButton(
+            proxy_btn_box,
+            text="🌐 Bắt Đầu Lấy Token Qua Proxy",
+            fg_color="#2980b9",
+            hover_color="#3498db",
+            font=ctk.CTkFont(weight="bold"),
+            command=self._on_start_proxy_token,
+        )
+        self.btn_start_proxy.pack(side="left", padx=(0, 10))
+
+        self.btn_stop_proxy = ctk.CTkButton(
+            proxy_btn_box,
+            text="❌ Hủy / Đóng Proxy",
+            fg_color="#7f8c8d",
+            hover_color="#95a5a6",
+            command=self._on_stop_proxy_token,
+        )
+        self.btn_stop_proxy.pack(side="left")
+
+        self.lbl_proxy_status = ctk.CTkLabel(
+            frame,
+            text="Trạng thái Proxy: Đang tắt",
+            font=ctk.CTkFont(size=12),
+            text_color="#95a5a6",
+        )
+        self.lbl_proxy_status.pack(anchor="w", padx=20, pady=10)
+
     # --- TAB NHẬT KÝ ---
     def _build_tab_logs(self) -> None:
         log_box = ctk.CTkFrame(self.tab_logs, fg_color="transparent")
@@ -430,6 +472,36 @@ class MainWindow(ctk.CTk):
         else:
             self.entry_token.configure(show="*")
             self.btn_toggle_eye.configure(text="👁")
+
+    def _on_start_proxy_token(self) -> None:
+        def on_captured(token: str) -> None:
+            self.after(
+                0,
+                lambda: self._handle_proxy_captured_token(token),
+            )
+
+        def on_status(msg: str) -> None:
+            self.after(
+                0,
+                lambda: self.lbl_proxy_status.configure(text=f"Trạng thái Proxy: {msg}"),
+            )
+
+        ok = self.proxy_token_service.start(on_token_captured=on_captured, on_status=on_status)
+        if not ok:
+            messagebox.showerror("Lỗi", "Không thể khởi động Proxy hoặc cài đặt chứng chỉ!")
+
+    def _on_stop_proxy_token(self) -> None:
+        self.proxy_token_service.stop()
+        self.lbl_proxy_status.configure(text="Trạng thái Proxy: Đã tắt và khôi phục cài đặt mạng")
+
+    def _handle_proxy_captured_token(self, token: str) -> None:
+        self.token_service.manual_set_token(token)
+        self._refresh_token_display()
+        self.lbl_proxy_status.configure(text="Trạng thái Proxy: Đã bắt được token! Proxy đã tự động tắt.")
+        messagebox.showinfo(
+            "Bắt Token Thành Công",
+            "Đã lấy được token từ game thành công!\nProxy đã tự động tắt và khôi phục cài đặt mạng Windows ban đầu.",
+        )
 
     def _on_token_status_changed(self, status: TokenStatus, masked_token: str) -> None:
         self.after(0, lambda: self._update_token_status_ui(status, masked_token))
@@ -582,6 +654,7 @@ class MainWindow(ctk.CTk):
 
     def _on_closing(self) -> None:
         self.emergency_stop()
+        self.proxy_token_service.stop()
         self.destroy()
 
 def main() -> None:
