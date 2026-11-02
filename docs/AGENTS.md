@@ -20,4 +20,5 @@
 - Hạn chế comment mã nguồn, chỉ comment các logic phức tạp bằng cụm từ tiếng Việt siêu ngắn.
 - Dọn dẹp toàn bộ file test/mock tạm thời sau khi xác minh xong.
 - Sau mỗi phiên làm việc hoặc cập nhật mới, ghi log vào `agentlog/`.
+- **Build EXE**: Tuyệt đối KHÔNG tự ý build EXE (`build_exe.py` / PyInstaller) trừ khi có yêu cầu cụ thể từ người dùng.
 
