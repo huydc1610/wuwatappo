@@ -25,8 +25,13 @@ def main() -> None:
     def on_status(msg: str) -> None:
         print(f"[*] {msg}")
 
-    print("[*] Đang thiết lập proxy...")
-    if not proxy_service.start(on_token_captured=on_captured, on_status=on_status):
+    print("[*] Đang thiết lập proxy & khởi động lại app WuwaTappo...")
+    if not proxy_service.start(
+        on_token_captured=on_captured,
+        on_status=on_status,
+        game_app_path=config.game_app_path,
+        auto_restart_app=True,
+    ):
         print("[!] Không thể bật proxy.")
         return
 
@@ -44,3 +49,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

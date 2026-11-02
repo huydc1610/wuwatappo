@@ -338,21 +338,28 @@ class MainWindow(ctk.CTk):
         btn_delete_token.pack(side="right")
 
         # Auto Proxy Token Extractor
-        ctk.CTkLabel(frame, text="Tự Động Lấy Token Qua Proxy", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", padx=20, pady=(25, 5))
+        ctk.CTkLabel(frame, text="Tự Động Lấy Token & Khởi Động WuwaTappo", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", padx=20, pady=(25, 5))
         ctk.CTkLabel(
             frame,
-            text="Nhấn Bắt đầu để tự động bật Proxy và cài chứng chỉ. Sau đó vào game mở sự kiện Tappo.\nKhi bắt được token, proxy sẽ TỰ ĐỘNG TẮT ngay lập tức và khôi phục cài đặt mạng.",
+            text="Khi bấm bắt đầu, hệ thống sẽ tự động bật Proxy và khởi động lại app WuwaTappo để đón token.\nKhi bắt được token, proxy sẽ TỰ ĐỘNG TẮT ngay lập tức và khôi phục mạng ban đầu.",
             font=ctk.CTkFont(size=12),
             text_color="gray",
             justify="left",
-        ).pack(anchor="w", padx=20, pady=(0, 10))
+        ).pack(anchor="w", padx=20, pady=(0, 8))
+
+        path_box = ctk.CTkFrame(frame, fg_color="transparent")
+        path_box.pack(fill="x", padx=20, pady=(0, 8))
+        ctk.CTkLabel(path_box, text="Đường dẫn WuwaTappo.exe:").pack(anchor="w")
+        self.entry_app_path = ctk.CTkEntry(path_box, width=500)
+        self.entry_app_path.insert(0, self.config.game_app_path)
+        self.entry_app_path.pack(fill="x", expand=True, pady=3)
 
         proxy_btn_box = ctk.CTkFrame(frame, fg_color="transparent")
         proxy_btn_box.pack(fill="x", padx=20, pady=5)
 
         self.btn_start_proxy = ctk.CTkButton(
             proxy_btn_box,
-            text="🌐 Bắt Đầu Lấy Token Qua Proxy",
+            text="🚀 Bật Proxy & Khởi Động Lại WuwaTappo",
             fg_color="#2980b9",
             hover_color="#3498db",
             font=ctk.CTkFont(weight="bold"),
@@ -474,6 +481,11 @@ class MainWindow(ctk.CTk):
             self.btn_toggle_eye.configure(text="👁")
 
     def _on_start_proxy_token(self) -> None:
+        app_path = self.entry_app_path.get().strip()
+        if app_path:
+            self.config.game_app_path = app_path
+            self.config.save()
+
         def on_captured(token: str) -> None:
             self.after(
                 0,
@@ -486,7 +498,12 @@ class MainWindow(ctk.CTk):
                 lambda: self.lbl_proxy_status.configure(text=f"Trạng thái Proxy: {msg}"),
             )
 
-        ok = self.proxy_token_service.start(on_token_captured=on_captured, on_status=on_status)
+        ok = self.proxy_token_service.start(
+            on_token_captured=on_captured,
+            on_status=on_status,
+            game_app_path=self.config.game_app_path,
+            auto_restart_app=True,
+        )
         if not ok:
             messagebox.showerror("Lỗi", "Không thể khởi động Proxy hoặc cài đặt chứng chỉ!")
 

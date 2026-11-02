@@ -8,6 +8,7 @@ DEFAULT_CLICK_URL = "https://api-wutheringwaves-wuwatappo.kurogames-global.com/a
 DEFAULT_ORIGIN = "http://tauri.localhost"
 DEFAULT_REFERER = "http://tauri.localhost/"
 DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0"
+DEFAULT_GAME_APP_PATH = r"C:\Program Files\WuwaTappoGlobal\WuwaTappo.exe"
 
 @dataclass
 class AppConfig:
@@ -16,6 +17,7 @@ class AppConfig:
     origin: str = DEFAULT_ORIGIN
     referer: str = DEFAULT_REFERER
     user_agent: str = DEFAULT_USER_AGENT
+    game_app_path: str = DEFAULT_GAME_APP_PATH
     default_place: str = "left"
     default_click_num: int = 1000
     check_interval_seconds: int = 60
@@ -59,6 +61,9 @@ class AppConfig:
             cfg.referer = parser["api"].get("referer", cfg.referer)
             cfg.user_agent = parser["api"].get("user_agent", cfg.user_agent)
 
+        if "app" in parser:
+            cfg.game_app_path = parser["app"].get("game_app_path", cfg.game_app_path)
+
         if "click" in parser:
             cfg.default_place = parser["click"].get("default_place", cfg.default_place)
             cfg.default_click_num = parser["click"].getint("default_click_num", cfg.default_click_num)
@@ -77,6 +82,9 @@ class AppConfig:
             "origin": self.origin,
             "referer": self.referer,
             "user_agent": self.user_agent,
+        }
+        parser["app"] = {
+            "game_app_path": self.game_app_path,
         }
         parser["click"] = {
             "default_place": self.default_place,

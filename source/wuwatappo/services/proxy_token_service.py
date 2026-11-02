@@ -180,6 +180,25 @@ class TokenCaptureAddon:
             self.captured = True
             self.on_token(token)
 
+def restart_game_app(app_path: str = r"C:\Program Files\WuwaTappoGlobal\WuwaTappo.exe") -> tuple[bool, str]:
+    flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+    try:
+        subprocess.run(["taskkill", "/F", "/IM", "WuwaTappo.exe"], capture_output=True, text=True, creationflags=flags)
+    except Exception:
+        pass
+
+    import time
+    time.sleep(1.2)
+
+    if not os.path.exists(app_path):
+        return False, f"Không tìm thấy app tại đường dẫn: {app_path}"
+
+    try:
+        subprocess.Popen([app_path], close_fds=True)
+        return True, "Đã khởi động lại app WuwaTappo thành công."
+    except Exception as e:
+        return False, f"Lỗi khởi động app: {str(e)}"
+
 class ProxyTokenService:
     def __init__(self, port: int = 8889) -> None:
         self.port = port
@@ -191,7 +210,13 @@ class ProxyTokenService:
 
         atexit.register(self.stop)
 
-    def start(self, on_token_captured: Callable[[str], None], on_status: Callable[[str], None] | None = None) -> bool:
+    def start(
+        self,
+        on_token_captured: Callable[[str], None],
+        on_status: Callable[[str], None] | None = None,
+        game_app_path: str = r"C:\Program Files\WuwaTappoGlobal\WuwaTappo.exe",
+        auto_restart_app: bool = True,
+    ) -> bool:
         if self.is_running:
             return True
 
@@ -214,7 +239,7 @@ class ProxyTokenService:
         self._master = DumpMaster(opts, loop=self._loop)
 
         def _handle_token(token: str) -> None:
-            # Tự động tắt proxy và ngắt master ngay khi bắt được token
+            # Tự động tắt proxy ngay khi bắt được token
             self.stop()
             if on_status:
                 on_status("Đã bắt được token! Proxy đã tự động đóng.")
@@ -232,8 +257,19 @@ class ProxyTokenService:
         self._thread = threading.Thread(target=_run, daemon=True)
         self._thread.start()
 
-        if on_status:
-            on_status(f"Proxy đang chạy (127.0.0.1:{self.port}). Hãy mở sự kiện Tappo trong game để lấy token.")
+        if auto_restart_app:
+            if on_status:
+                on_status("Proxy đã bật. Đang tự động khởi động lại app WuwaTappo để lấy token...")
+            ok, restart_msg = restart_game_app(game_app_path)
+            if on_status:
+                if ok:
+                    on_status("Đã khởi động lại app WuwaTappo. Đang chờ token từ app...")
+                else:
+                    on_status(f"Cảnh báo: {restart_msg} (Hãy mở app WuwaTappo thủ công)")
+        else:
+            if on_status:
+                on_status(f"Proxy đang chạy (127.0.0.1:{self.port}). Hãy mở sự kiện Tappo để lấy token.")
+
         return True
 
     def stop(self) -> None:
@@ -244,3 +280,4 @@ class ProxyTokenService:
 
         if self._master and self._loop and self._loop.is_running():
             self._loop.call_soon_threadsafe(self._master.shutdown)
+
