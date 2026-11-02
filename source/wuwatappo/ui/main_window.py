@@ -10,7 +10,6 @@ from wuwatappo.services.chest_service import ChestService
 from wuwatappo.services.click_service import ClickService
 from wuwatappo.services.token_service import TokenService, TokenStatus
 from wuwatappo.storage import Storage
-from wuwatappo.ui.widgets import ConfirmTokenDialog
 
 class MainWindow(ctk.CTk):
     def __init__(self) -> None:
@@ -33,7 +32,6 @@ class MainWindow(ctk.CTk):
 
         # Đăng ký callbacks
         self.token_service.on_status_change = self._on_token_status_changed
-        self.token_service.on_token_detected = self._on_token_detected
         self.click_service.on_progress = self._on_click_progress
         self.click_service.on_finished = self._on_click_finished
         self.click_service.on_auth_expired = self._on_auth_expired
@@ -45,8 +43,6 @@ class MainWindow(ctk.CTk):
         self._refresh_token_display()
         self._load_rewards_table()
 
-        # Bật listener ngầm
-        self.token_service.start_background_listener()
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
 
     def _build_ui(self) -> None:
@@ -339,23 +335,6 @@ class MainWindow(ctk.CTk):
         )
         btn_delete_token.pack(side="right")
 
-        # Background listener
-        ctk.CTkLabel(frame, text="Dịch Vụ Phát Hiện Token Ngầm", font=ctk.CTkFont(size=15, weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
-        ctk.CTkLabel(
-            frame,
-            text="Tự động phát hiện token khi bạn copy vào clipboard và yêu cầu xác nhận trước khi dùng.",
-            font=ctk.CTkFont(size=12),
-            text_color="gray",
-        ).pack(anchor="w", padx=20)
-
-        btn_toggle_listener = ctk.CTkButton(
-            frame,
-            text="Dừng / Bật Dịch Vụ Ngầm",
-            width=180,
-            command=self._on_toggle_listener,
-        )
-        btn_toggle_listener.pack(anchor="w", padx=20, pady=10)
-
     # --- TAB NHẬT KÝ ---
     def _build_tab_logs(self) -> None:
         log_box = ctk.CTkFrame(self.tab_logs, fg_color="transparent")
@@ -451,27 +430,6 @@ class MainWindow(ctk.CTk):
         else:
             self.entry_token.configure(show="*")
             self.btn_toggle_eye.configure(text="👁")
-
-    def _on_toggle_listener(self) -> None:
-        if self.token_service._running:
-            self.token_service.stop_background_listener()
-            messagebox.showinfo("Thông báo", "Đã dừng dịch vụ phát hiện token ngầm.")
-        else:
-            self.token_service.start_background_listener()
-            messagebox.showinfo("Thông báo", "Đã bật dịch vụ phát hiện token ngầm.")
-        self._refresh_token_display()
-
-    def _on_token_detected(self, masked_token: str) -> None:
-        # Bật dialog xác nhận
-        self.after(
-            100,
-            lambda: ConfirmTokenDialog(
-                self,
-                masked_token=masked_token,
-                on_confirm=self.token_service.confirm_token,
-                on_reject=self.token_service.reject_token,
-            ),
-        )
 
     def _on_token_status_changed(self, status: TokenStatus, masked_token: str) -> None:
         self.after(0, lambda: self._update_token_status_ui(status, masked_token))
@@ -624,7 +582,6 @@ class MainWindow(ctk.CTk):
 
     def _on_closing(self) -> None:
         self.emergency_stop()
-        self.token_service.stop_background_listener()
         self.destroy()
 
 def main() -> None:
